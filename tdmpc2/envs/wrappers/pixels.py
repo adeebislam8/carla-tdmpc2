@@ -24,13 +24,18 @@ class PixelWrapper(gym.Wrapper):
 		frame = self.env.render(
 			mode='rgb_array', width=self._render_size, height=self._render_size
 		).transpose(2, 0, 1)
+		# print("frame type", type(frame))
 		self._frames.append(frame)
-		return torch.from_numpy(np.concatenate(self._frames))
-
+		# return torch.from_numpy(np.concatenate(self._frames))
+		x = torch.from_numpy(np.concatenate(self._frames))
+		# print("x type", type(x))
+		return x
+	
 	def reset(self):
 		self.env.reset()
 		for _ in range(self._frames.maxlen):
 			obs = self._get_obs()
+			# print("obs type", type(obs))
 		return obs
 
 	def step(self, action):

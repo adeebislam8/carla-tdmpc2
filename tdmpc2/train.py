@@ -45,7 +45,7 @@ def train(cfg: dict):
 	cfg = parse_cfg(cfg)
 	set_seed(cfg.seed)
 	print(colored('Work dir:', 'yellow', attrs=['bold']), cfg.work_dir)
-
+	print(colored('Config:', 'yellow', attrs=['bold']), cfg)
 	trainer_cls = OfflineTrainer if cfg.multitask else OnlineTrainer
 	trainer = trainer_cls(
 		cfg=cfg,
@@ -54,6 +54,7 @@ def train(cfg: dict):
 		buffer=Buffer(cfg),
 		logger=Logger(cfg),
 	)
+	print(colored('Training...', 'green', attrs=['bold']))
 	trainer.train()
 	print('\nTraining completed successfully')
 

@@ -10,6 +10,8 @@ from envs.wrappers.tensor import TensorWrapper
 def missing_dependencies(task):
 	raise ValueError(f'Missing dependencies for task {task}; install dependencies to use this environment.')
 
+from envs.carla import make_env as make_carla_env
+
 try:
 	from envs.dmcontrol import make_env as make_dm_control_env
 except:
@@ -26,12 +28,13 @@ try:
 	from envs.myosuite import make_env as make_myosuite_env
 except:
 	make_myosuite_env = missing_dependencies
-
+## ADB: this is where I should add the CARLA environment
+## ADB: I need to create a make_env function for the CARLA environment
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 
-def make_multitask_env(cfg):
+def make_multitask_env(cfg):								## ADB: For now I will ignore this function
 	"""
 	Make a multi-task environment for TD-MPC2 experiments.
 	"""
@@ -62,9 +65,9 @@ def make_env(cfg):
 
 	else:
 		env = None
-		for fn in [make_dm_control_env, make_maniskill_env, make_metaworld_env, make_myosuite_env]:
+		for fn in [make_carla_env, make_dm_control_env, make_maniskill_env, make_metaworld_env, make_myosuite_env]:	## ADB: I will add the CARLA environment here
 			try:
-				env = fn(cfg)
+				env = fn(cfg)			## ADB: What are the cfg parameters?
 			except ValueError:
 				pass
 		if env is None:

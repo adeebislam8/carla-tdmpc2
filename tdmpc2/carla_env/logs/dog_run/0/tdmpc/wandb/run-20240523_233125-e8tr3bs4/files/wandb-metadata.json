@@ -1,0 +1,173 @@
+{
+    "os": "Linux-5.15.0-105-generic-x86_64-with-glibc2.31",
+    "python": "3.9.19",
+    "heartbeatAt": "2024-05-23T14:31:26.882100",
+    "startedAt": "2024-05-23T14:31:25.967216",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "disable_wandb=False",
+        "wandb_entity=adeeb-islam8",
+        "exp_name=tdmpc",
+        "task=dog_run",
+        "seed=0"
+    ],
+    "state": "running",
+    "program": "-m tdmpc2.train",
+    "codePathLocal": null,
+    "git": {
+        "remote": "https://github.com/carlosferrazza/humanoid-bench.git",
+        "commit": "3951d65bc85e16a562d091a7f4820150c20ed91f"
+    },
+    "email": "adeeb.islam8@gmail.com",
+    "root": "/home/adeeb/humanoid-bench",
+    "host": "adeeb-MS-7E01",
+    "username": "adeeb",
+    "executable": "/home/adeeb/miniconda3/envs/humanoid/bin/python",
+    "cpu_count": 16,
+    "cpu_count_logical": 24,
+    "cpu_freq": {
+        "current": 2334.3065,
+        "min": 800.0,
+        "max": 4783.333333333333
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 4945.667,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 4904.044,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 5200.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 5200.0
+        },
+        {
+            "current": 4953.157,
+            "min": 800.0,
+            "max": 5200.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 5200.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 4870.199,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 4100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 4100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 4100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 4100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 4100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 4100.0
+        },
+        {
+            "current": 2100.0,
+            "min": 800.0,
+            "max": 4100.0
+        },
+        {
+            "current": 3621.17,
+            "min": 800.0,
+            "max": 4100.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 1832.2072448730469,
+            "used": 378.7181968688965
+        }
+    },
+    "gpu": "NVIDIA GeForce RTX 4080",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce RTX 4080",
+            "memory_total": 17171480576
+        }
+    ],
+    "memory": {
+        "total": 31.179439544677734
+    }
+}

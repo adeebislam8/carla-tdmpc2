@@ -1,0 +1,5 @@
+- disable_wandb=False
+- wandb_entity=adeeb-islam8
+- exp_name=tdmpc
+- task=dog_run
+- seed=0

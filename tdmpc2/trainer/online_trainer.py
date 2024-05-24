@@ -28,7 +28,9 @@ class OnlineTrainer(Trainer):
 		"""Evaluate a TD-MPC2 agent."""
 		ep_rewards, ep_successes = [], []
 		for i in range(self.cfg.eval_episodes):
+			print("eval episode", i)
 			obs, done, ep_reward, t = self.env.reset(), False, 0, 0
+			# print("obs", obs)
 			if self.cfg.save_video:
 				self.logger.video.init(self.env, enabled=(i==0))
 			while not done:
@@ -95,8 +97,10 @@ class OnlineTrainer(Trainer):
 
 			# Collect experience
 			if self._step > self.cfg.seed_steps:
+				# print("Agent acting")
 				action = self.agent.act(obs, t0=len(self._tds)==1)
 			else:
+				# print("Agent random acting")
 				action = self.env.rand_act()
 			obs, reward, done, info = self.env.step(action)
 			self._tds.append(self.to_td(obs, action, reward))
@@ -107,9 +111,12 @@ class OnlineTrainer(Trainer):
 					num_updates = self.cfg.seed_steps
 					print('Pretraining agent on seed data...')
 				else:
+					# print("incremental update")
 					num_updates = 1
-				for _ in range(num_updates):
+				for j in range(num_updates):
+					# print("updating agent", j)
 					_train_metrics = self.agent.update(self.buffer)
+				# print("train metrics", _train_metrics)
 				train_metrics.update(_train_metrics)
 
 			self._step += 1

@@ -23,6 +23,10 @@ class TensorWrapper(gym.Wrapper):
 		return x
 
 	def _obs_to_tensor(self, obs):
+		if type(obs) == torch.Tensor:
+			# print("already tensor")
+			return obs
+		
 		if isinstance(obs, dict):
 			for k in obs.keys():
 				obs[k] = self._try_f32_tensor(obs[k])

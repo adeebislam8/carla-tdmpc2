@@ -2,7 +2,7 @@ import numpy as np
 import gym
 from envs.wrappers.time_limit import TimeLimit
 
-
+# ADB: Doesn't import preexisting library. Suitable to follow for CARLA environment.
 MYOSUITE_TASKS = {
 	'myo-reach': 'myoHandReachFixed-v0',
 	'myo-reach-hard': 'myoHandReachRandom-v0',
