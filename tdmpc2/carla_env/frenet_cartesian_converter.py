@@ -89,12 +89,18 @@ class FrenetCartesianConverter:
             alpha += 2*np.pi
         return alpha
     
-
+    def validate_path(self, s):
+        if s[-1] == 0:
+            raise ValueError("Path length is zero")
+        # print("Path is valid:", s)
     
     def _fit_cubic_spline(self, waypoints):
         # sparsify the waypoints
-        print("converting to frenet")
-        waypoints = waypoints[::5]
+        # print("converting to frenet")
+        # sparse if the number of waypoints is greater than 100
+        if len(waypoints) > 100:
+            waypoints = waypoints[::5]
+            print("Waypoints sparsified")
         x = [point[0] for point in waypoints]
         y = [point[1] for point in waypoints]
         # print("x:", x)
@@ -106,9 +112,24 @@ class FrenetCartesianConverter:
         # self.x_spline = CubicSpline(s, x)
         # self.y_spline = CubicSpline(s, y)
         print("length of path s:", s[-1])
+        
+        try:
+            self.validate_path(s)
+        except ValueError as e:
+            print(e)
+            self.x_spline = None
+            self.y_spline = None
+            return
+        
         self.path_length = s[-1]
-        self.x_spline = make_interp_spline(s, x, k=3, bc_type='clamped')
-        self.y_spline = make_interp_spline(s, y, k=3, bc_type='clamped')
+        try:
+            self.x_spline = make_interp_spline(s, x, k=3, bc_type='clamped')
+            self.y_spline = make_interp_spline(s, y, k=3, bc_type='clamped')
+        except Exception as e:
+            print("Error fitting spline:", e)
+            self.x_spline = None
+            self.y_spline = None
+            return
     # #converting a list of x,y waypoints to s-d cordiantes
     # def _get_s_d_cordinates(waypoints):
     #     x = [point[0] for point in waypoints]

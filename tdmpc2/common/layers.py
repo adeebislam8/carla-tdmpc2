@@ -34,9 +34,11 @@ class ShiftAug(nn.Module):
 		self.pad = pad
 
 	def forward(self, x):
+		# print("x: ", x)
 		x = x.float()
+		# print("layers.py x.shape: ", x.shape)
 		n, _, h, w = x.size()
-		assert h == w
+		# assert h == w
 		padding = tuple([self.pad] * 4)
 		x = F.pad(x, padding, 'replicate')
 		eps = 1.0 / (h + 2 * self.pad)
@@ -94,6 +96,9 @@ class NormedLinear(nn.Linear):
 		self.dropout = nn.Dropout(dropout, inplace=True) if dropout else None
 
 	def forward(self, x):
+		x = x.float()
+		# print("layers.py x.shape: ", x.shape)
+		# print("layers.py x.type: ", x.dtype)
 		x = super().forward(x)
 		if self.dropout:
 			x = self.dropout(x)
@@ -127,7 +132,8 @@ def conv(in_shape, num_channels, act=None):
 	Basic convolutional encoder for TD-MPC2 with raw image observations.
 	4 layers of convolution with ReLU activations, followed by a linear layer.
 	"""
-	assert in_shape[-1] == 64 # assumes rgb observations to be 64x64
+	# assert in_shape[-1] == 64 # assumes rgb observations to be 64x64
+	print("layers.py in_shape: ", in_shape)
 	layers = [
 		ShiftAug(), PixelPreprocess(),
 		nn.Conv2d(in_shape[0], num_channels, 7, stride=2), nn.ReLU(inplace=True),
@@ -138,16 +144,62 @@ def conv(in_shape, num_channels, act=None):
 		layers.append(act)
 	return nn.Sequential(*layers)
 
+def conv_carla(in_shape, num_channels, act=None):
+    """
+    Basic convolutional encoder for TD-MPC2 with raw image observations.
+    4 layers of convolution with ReLU activations, followed by a linear layer.
+    """
+    # print("layers.py in_shape: ", in_shape)
+    layers = [
+        ShiftAug(),
+        PixelPreprocess(),
+        nn.Conv2d(in_shape[0], num_channels, 7, stride=2, padding=3), nn.ReLU(inplace=True),  # Output: (num_channels, 42, 210)
+        nn.Conv2d(num_channels, num_channels, 5, stride=2, padding=2), nn.ReLU(inplace=True), # Output: (num_channels, 21, 105)
+        nn.Conv2d(num_channels, num_channels, 3, stride=2, padding=1), nn.ReLU(inplace=True), # Output: (num_channels, 11, 53)
+        nn.Conv2d(num_channels, num_channels, 3, stride=1, padding=1), nn.ReLU(inplace=True), # Output: (num_channels, 11, 53)
+        nn.Flatten()
+    ]
+    
+    # Calculate the size of the flattened layer
+    # conv_output_size = num_channels * 11 * 53
+
+    # Add the fully connected layer to reduce to the desired latent vector size
+    layers.append(nn.Linear(3872, 512))
+    
+    if act:
+        layers.append(act)
+    
+    return nn.Sequential(*layers)
 
 def enc(cfg, out={}):
 	"""
 	Returns a dictionary of encoders for each observation in the dict.
 	"""
+	# if cfg.obs == "multi":
+	# 	print("multi modal enc: ", cfg.obs_shape.keys())
+	# 	for k in cfg.obs_shape.keys():
+	# 		if k == 'image':
+	# 			print("image: ", cfg.obs_shape[k])
+	# 			out[k] = conv_carla(cfg.obs_shape[k], cfg.num_channels, act=SimNorm(cfg))
+	# 		elif k == 'state':
+	# 			print("state: ", cfg.obs_shape[k])
+	# 			print("state type: ", type(cfg.obs_shape[k]))
+	# 			out[k] = mlp(cfg.obs_shape[k][0] + cfg.task_dim, max(cfg.num_enc_layers-1, 1)*[cfg.enc_dim], cfg.latent_dim, act=SimNorm(cfg))
+	# 	# print("multi enc: ", out)
+	# 	return nn.ModuleDict(out)
+
+		# conv_out = conv(cfg.obs_shape[k]['image'], cfg.num_channels, act=SimNorm(cfg))
+		# mlp_out = mlp(cfg.obs_shape[k]['state'][0] + cfg.task_dim, max(cfg.num_enc_layers-1, 1)*[cfg.enc_dim], cfg.latent_dim, act=SimNorm(cfg))
+		# out = (conv_out + mlp_out)/2
+	print("Non multi")
+	print("cfg.obs_shape.keys(): ", cfg.obs_shape)
 	for k in cfg.obs_shape.keys():
 		if k == 'state':
 			out[k] = mlp(cfg.obs_shape[k][0] + cfg.task_dim, max(cfg.num_enc_layers-1, 1)*[cfg.enc_dim], cfg.latent_dim, act=SimNorm(cfg))
 		elif k == 'rgb':
-			out[k] = conv(cfg.obs_shape[k], cfg.num_channels, act=SimNorm(cfg))
+			out[k] = conv_carla(cfg.obs_shape[k], cfg.num_channels, act=SimNorm(cfg))
+		elif k == 'image':
+			out[k] = conv_carla(cfg.obs_shape[k], cfg.num_channels, act=SimNorm(cfg))
 		else:
 			raise NotImplementedError(f"Encoder for observation type {k} not implemented.")
 	return nn.ModuleDict(out)

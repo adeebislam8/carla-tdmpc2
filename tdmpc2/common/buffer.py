@@ -2,7 +2,7 @@ import torch
 from tensordict.tensordict import TensorDict
 from torchrl.data.replay_buffers import ReplayBuffer, LazyTensorStorage
 from torchrl.data.replay_buffers.samplers import SliceSampler
-
+from memory_profiler import profile
 
 class Buffer():
 	"""
@@ -70,27 +70,35 @@ class Buffer():
 		return (arg.to(device, non_blocking=True) \
 			if arg is not None else None for arg in args)
 
+	#@profile
 	def _prepare_batch(self, td):
 		"""
 		Prepare a sampled batch for training (post-processing).
 		Expects `td` to be a TensorDict with batch size TxB.
 		"""
 		obs = td['obs']
+		# print("buffer.py prepare_batch obs", obs)
 		action = td['action'][1:]
 		reward = td['reward'][1:].unsqueeze(-1)
 		task = td['task'][0] if 'task' in td.keys() else None
 		return self._to_device(obs, action, reward, task)
 
+	#@profile
 	def add(self, td):
 		"""Add an episode to the buffer."""
+		# print("buffer.py td", td)
+
 		td['episode'] = torch.ones_like(td['reward'], dtype=torch.int64) * self._num_eps
+		# print("buffer.py td (2)", td)
 		if self._num_eps == 0:
 			self._buffer = self._init(td)
 		self._buffer.extend(td)
 		self._num_eps += 1
 		return self._num_eps
 
+	#@profile	
 	def sample(self):
 		"""Sample a batch of subsequences from the buffer."""
 		td = self._buffer.sample().view(-1, self.cfg.horizon+1).permute(1, 0)
+		# print("buffer.py sample td", td)
 		return self._prepare_batch(td)

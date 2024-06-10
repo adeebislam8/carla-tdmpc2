@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from common import layers, math, init
-
+from memory_profiler import profile
 
 class WorldModel(nn.Module):
 	"""
@@ -47,6 +47,7 @@ class WorldModel(nn.Module):
 		self.log_std_dif = self.log_std_dif.to(*args, **kwargs)
 		return self
 	
+	#@profile
 	def train(self, mode=True):
 		"""
 		Overriding `train` method to keep target Q-networks in eval mode.
@@ -90,6 +91,7 @@ class WorldModel(nn.Module):
 			emb = emb.repeat(x.shape[0], 1)
 		return torch.cat([x, emb], dim=-1)
 
+	#@profile
 	def encode(self, obs, task):
 		"""
 		Encodes an observation into its latent representation.
@@ -98,9 +100,49 @@ class WorldModel(nn.Module):
 		if self.cfg.multitask:
 			obs = self.task_emb(obs, task)
 		if self.cfg.obs == 'rgb' and obs.ndim == 5:
+			# print("world_model.py RGB obs[k]: ", obs.shape)
 			return torch.stack([self._encoder[self.cfg.obs](o) for o in obs])
-		return self._encoder[self.cfg.obs](obs)
+		
 
+		
+		if self.cfg.obs == 'multi' and obs['image'].ndim == 5:
+			# print("world_model.py Multi obs[k]: ", obs.shape)
+			for k in obs.keys():
+				# if k == 'image':
+				# print("world_model.py Multi before obs[k]: ", obs[k].shape)
+				# obs[k] = torch.stack([self._encoder['image'](o) for o in obs[k]])
+				obs[k] = torch.stack([self._encoder[k](o) for o in obs[k]])
+				# print("world_model.py Multi after obs[k]: ", obs[k].shape)
+
+			# print("world_model.py obs['image'].shape: ", obs['image'].shape)
+			# print("world_model.py obs['state'].shape: ", obs['state'].shape)
+
+			fused_obs = (obs['image'] + obs['state'])/2
+			return fused_obs
+			# return torch.stack([self._encoder[k](o) for k, o in obs.items()])
+
+		if self.cfg.obs == 'multi':
+			for k in obs.keys():
+				# if k == 'image':
+				# 	obs[k] = self._encoder['image'](obs[k])
+				# else:
+				# 	obs[k] = self._encoder['state'](obs[k])
+				# print("world_model.py obs[k]: ", obs[k].type)
+				obs[k] = self._encoder[k](obs[k])
+			# print("world_model.py obs['image'].shape: ", obs['image'].shape)
+			# print("world_model.py obs['state'].shape: ", obs['state'].shape)
+
+			fused_obs = (obs['image'] + obs['state'])/2
+			# print("fused_obs shape:", fused_obs.shape)
+			# print("fused_obs:", fused_obs)
+			return fused_obs
+
+		obs = self._encoder[self.cfg.obs](obs)
+		# print("encoded obs: ", obs)
+		return obs
+		# return self._encoder[self.cfg.obs](obs)
+
+	#@profile
 	def next(self, z, a, task):
 		"""
 		Predicts the next latent state given the current latent state and action.
@@ -118,7 +160,8 @@ class WorldModel(nn.Module):
 			z = self.task_emb(z, task)
 		z = torch.cat([z, a], dim=-1)
 		return self._reward(z)
-
+	
+	#@profile
 	def pi(self, z, task):
 		"""
 		Samples an action from the policy prior.

@@ -3,16 +3,18 @@ defaults:
 
 # environment
 task: dog-run
-obs: state
+obs: multi
 
 # evaluation
-checkpoint: ???
+checkpoint: ??
 eval_episodes: 1
-eval_freq: 50000
+eval_freq: 5000
+# eval_freq: 500
 
 # training
-steps: 10_000_0
-batch_size: 128
+# steps: 10_000_000
+steps: 10_000
+batch_size: 4
 reward_coef: 0.1
 value_coef: 0.1
 consistency_coef: 20
@@ -24,7 +26,9 @@ tau: 0.01
 discount_denom: 5
 discount_min: 0.95
 discount_max: 0.995
-buffer_size: 50_000
+# buffer_size: 1_000_00
+buffer_size: 10_000
+
 exp_name: default
 data_dir: ???
 
@@ -78,11 +82,11 @@ work_dir: ???
 task_title: ???
 multitask: ???
 tasks: ???
-obs_shape: ???
+obs_shape: [9, 84, 420]
 action_dim: ???
 episode_length: ???
-obs_shapes: ???
+obs_shapes: [9, 84, 420]
 action_dims: ???
 episode_lengths: ???
-seed_steps: 1
+seed_steps: ???
 bin_size: ???

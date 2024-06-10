@@ -11,7 +11,7 @@ from PIL import Image
 from gym.envs.registration import register
 import gym
 from gym import spaces
-
+import torch
 
 # try:
 #     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -39,7 +39,7 @@ class CarlaEnv(gym.Env):
     camera_channels=3
     NUM_PIXELS = im_width*im_height*camera_channels
 
-    def __init__(self, render_mode="human"):
+    def __init__(self, render_mode="human", num_frames=3, render_size=64):
         super(CarlaEnv, self).__init__()
         self.render_mode=render_mode
 
@@ -68,10 +68,10 @@ class CarlaEnv(gym.Env):
         self.camera_data = np.zeros((self.NUM_PIXELS,))
         self.actor_list = []
         self.collision_hist = []
-
+        self.prev_action = [0,0]
          # Define action space
          # Action space is a 2D vector normalized continuous value between -1 and 1
-        self.action_space = spaces.Box(low=np.array([0.0,-1.0]), high=np.array([1.0, 1.0]), shape=(2,), dtype=np.float64)
+        self.action_space = spaces.Box(low=np.array([-1.0,-1.0]), high=np.array([1.0, 1.0]), shape=(2,), dtype=np.float64)
 
         # Define observation space
         #observation_high = np.array([255] * self.NUM_PIXELS + [np.inf, np.inf], dtype=np.float64)
@@ -80,12 +80,17 @@ class CarlaEnv(gym.Env):
         # observation_low = np.array([-np.inf, -np.inf], dtype=np.float64)
         # self.observation_space = spaces.Box(low=observation_low, high=observation_high, dtype=np.float64)
 
-        self.image_space = spaces.Box(low=0, high=255, shape=(self.im_height, self.im_width, self.camera_channels), dtype=np.uint8)
-        self.state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float64)   # [velocity, s, d]
+        # self.image_space = spaces.Box(low=0, high=255, shape=(self.camera_channels, self.im_height, self.im_width), dtype=np.uint8)
+        self.image_space = gym.spaces.Box(
+			low=0, high=255, shape=(num_frames*3, render_size, render_size), dtype=np.uint8
+		)
+        self._frames = deque([], maxlen=num_frames)
+        self.state_space = spaces.Box(low=-np.inf, high=np.inf, shape=(4,), dtype=np.float64)   # [velocity, s, d, alpha]
         self.observation_space = spaces.Dict({
             "image": self.image_space,
             "state": self.state_space
         })
+        self._render_size = render_size
 
         # Initialize vehicle and camera sensor
         self.vehicle = None
@@ -97,18 +102,21 @@ class CarlaEnv(gym.Env):
         self.episode_start = None
 
         self.map = self.world.get_map()
-        self.sampling_resolution = 5.0
+        self.sampling_resolution = 2.0
         self.global_planner = GlobalRoutePlanner(self.map, self.sampling_resolution)
         self.global_plan = None
 
+        self.s = 0
+        self.d = 0
+        self.alpha = 0
 
 
     def _init_position(self):
         spawn_point = random.choice(self.world.get_map().get_spawn_points())
-        spawn_location = spawn_point.location
-        spawn_rotation = spawn_point.rotation
-        spawn_location.x = spawn_location.x + 30
-        spawn_rotation = spawn_point.rotation
+        # spawn_location = spawn_point.location
+        # spawn_rotation = spawn_point.rotation
+        # spawn_location.x = spawn_location.x 
+        # spawn_rotation = spawn_point.rotation
         #print(spawn_location.x)
 
         self.initial_position = spawn_point
@@ -139,22 +147,47 @@ class CarlaEnv(gym.Env):
         print("reset")
         # super().reset(seed=seed, options=options)
 
-        if len(self.actor_list):
-            self._destroy_actor()
-            print("destroy actor")
 
-        self.collision_hist = []
         self.camera_data = np.zeros((self.NUM_PIXELS,))
         self._control = carla.VehicleControl()
 
-        print("1")
-        self._spawn_vehicle()
-        print("spawned vehicle")
-        self._spawn_camera_sensor()
-        print("spawned camera sensor")
+        if len(self.actor_list) == 0:
+            # self._destroy_actor()
+            # print("destroy actor")
+            print("1")
+            self._spawn_vehicle()
+            print("spawned vehicle")
+            self._spawn_camera_sensor()
+            print("spawned camera sensor")
 
-        self._spawn_collision_sensor()
-        print("spawn collision sensor")
+            self._spawn_collision_sensor()
+            print("spawn collision sensor")
+        else:
+            self.vehicle.apply_control(self._control)
+            self.vehicle.set_target_velocity(carla.Vector3D(x=0, y=0, z=0))
+            self.vehicle.set_target_angular_velocity(carla.Vector3D(x=0, y=0, z=0))
+            self._init_position()
+            self.vehicle.set_transform(self.initial_position)
+            #time out
+            time.sleep(1)
+        self.collision_hist = []
+
+        # if len(self.actor_list) > 0:
+        #     self._destroy_actor()
+        #     print("destroy actor")
+        # self.actor_list = []
+        # self.collision_hist = []
+        # self.camera_data = np.zeros((self.NUM_PIXELS,))
+        # self._control = carla.VehicleControl()
+
+        # print("1")
+        # self._spawn_vehicle()
+        # print("spawned vehicle")
+        # self._spawn_camera_sensor()
+        # print("spawned camera sensor")
+
+        # self._spawn_collision_sensor()
+        # print("spawn collision sensor")
         goal_position = random.choice(self.map.get_spawn_points())
         # distance_to_goal = self.calculate_distance(self.initial_position, goal_position)
         # while distance_to_goal < 100:
@@ -162,8 +195,8 @@ class CarlaEnv(gym.Env):
             goal_position = random.choice(self.map.get_spawn_points())  
         self.goal_position = goal_position   
 
-        print("start_pos: ", self.initial_position)
-        print("goal_pos: ", self.goal_position) 
+        # print("start_pos: ", self.initial_position)
+        # print("goal_pos: ", self.goal_position) 
 
         self.global_plan = self.global_planner.trace_route(self.initial_position.location, self.goal_position.location)
         self.waypoint_list = []
@@ -174,6 +207,11 @@ class CarlaEnv(gym.Env):
         # print(self.global_plan)
         # self.draw_global_plan(self.global_plan)
         self.episode_start = time.time()
+        for _ in range(self._frames.maxlen):
+            obs = self._get_observation()
+			# print("obs type", type(obs))
+        return obs
+
 
         observation = self._get_observation()
         return observation
@@ -184,36 +222,72 @@ class CarlaEnv(gym.Env):
         self._apply_action(action)
         observation=self._get_observation()
         reward, terminated= self._calculate_reward(observation, action)
-        # print("reward: ", reward)
-        # print("Action: ", action)
+        print("env.py reward: ", reward)
+        print("env.py Action: ", action)
+        self.prev_action = action
         return observation, reward, terminated, {}
 
     def _calculate_reward(self, observation, action): 
-        terminated = False  
-        if self.collision_hist:
-            reward = -50
-            terminated = True
-        # if self.lane_invasion_hist:
-        #     reward = -50
-        #     terminated = True
-        
-        # velocity = observation["state"][0]
-        # if velocity > 20:
-        #     reward = -1
 
-        # else:
-        #     reward = 1
-        # s = observation["state"]
+        terminated = False
+        reward = 0.0
+
+        # Check for collision
+        if self.collision_hist:
+            reward -= 50
+            terminated = True
+            return reward, terminated
+
+        # Extract necessary information
+        velocity = observation["state"][0]
         x, y, yaw = self._get_transform()
-        frenet_pose = self.f2c.get_frenet([x,y,yaw])
-        # print("frenet: ", frenet_pose)
+        frenet_pose = self.f2c.get_frenet([x, y, yaw])
         s = frenet_pose[0]
         d = frenet_pose[1]
         alpha = frenet_pose[2]
-        reward = 0
-        reward += (s/self.path_length) 
+        self.s, self.d, self.alpha = s, d, alpha
+
+        # Progress reward
+        reward += (s / self.path_length) * 1.0
+
+        # Lane keeping reward
+        if abs(d) > 3.0:
+            reward += (3 - abs(d)) * 0.1
+
+        # penalty for braking 
+        if action[0] < 0:
+            reward -= 0.1
+        
+        #penalty for large delta change in action
+        if abs(action[1] - self.prev_action[1]) > 0.5:
+            reward -= 0.1
+        if abs(action[0] - self.prev_action[0]) > 0.5:
+            reward -= 0.1
+
+        # Speed reward
+        if 10 <= velocity <= 20:
+            reward += velocity * 0.1
+        else:
+            reward -= abs(velocity - 15) * 0.01
+
+        # orientation reward
+        if abs(alpha) < 0.4:
+            reward += 0.1
+        else:
+            reward -= abs(alpha) * 0.01
+
+        # Time penalty
+        
+        # Check if goal is reached
+        # if self.calculate_distance(self.vehicle.get_transform(), self.goal_position) < 5:
+        #     reward += 100
+        #     terminated = True
 
         return reward, terminated
+    def set_spectator(self):
+        spectator = self.world.get_spectator()
+        transform = self.vehicle.get_transform()
+        spectator.set_transform(carla.Transform(transform.location + carla.Location(z=50), carla.Rotation(pitch=-90)))
 
     def render(self, mode="human", **kwargs):
         if mode == "human":
@@ -221,49 +295,27 @@ class CarlaEnv(gym.Env):
                 image = self.camera_data.reshape((self.im_height, self.im_width, self.camera_channels))
                 image = image.astype(np.uint8)
                 self.draw_global_plan(self.global_plan)
+                self.set_spectator()
                 cv2.imshow("Camera", image)
                 cv2.waitKey(1)
+                return image
         elif mode == "rgb_array":
             # image = self.camera_data.reshape((self.im_height, self.im_width, self.camera_channels))
             if self.camera_data is not None:
                 image = self.camera_data.reshape((self.im_height, self.im_width, self.camera_channels))
                 image = image.astype(np.uint8)
                 self.draw_global_plan(self.global_plan)
+                self.set_spectator()
 
                 cv2.imshow("Camera", image)
                 cv2.waitKey(1)
-            return image
+                print("image shape: ", image.shape)
+                return image
         elif mode == "depth_array":
             raise NotImplementedError
         else:
             raise ValueError(f"Invalid mode={mode}")
-        
-    # def render(self, mode="human", **kwargs):
-    #     #print("render")
-    #     if mode == "human":
-    #         # Render the camera observation
-    #         if self.camera_data is not None:
-    #             image = self.camera_data.reshape((self.im_height, self.im_width, self.camera_channels))
-    #             image = image.astype(np.uint8)
-    #             self.draw_global_plan(self.global_plan)
 
-    #             # print(image)
-    #             # image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-    #             cv2.imshow("Camera", image)
-    #             cv2.waitKey(1)
-    #     elif mode == "rgb_array":
-    #         if self.camera_data is not None:
-    #             image = self.camera_data.reshape((self.im_height, self.im_width, self.camera_channels))
-    #             image = image.astype(np.uint8)
-    #             self.draw_global_plan(self.global_plan)
-    #             cv2.imshow("Camera", image)
-    #             cv2.waitKey(1)
-    #         return self.camera_data
-    #     elif mode == "depth_array":
-    #         raise NotImplementedError
-    #     else:
-    #         raise ValueError(f"Invalid mode={mode}")
-        
     def _apply_action(self, action):
         throttle = float(action[0])
         steer = float(action[1])  
@@ -296,6 +348,10 @@ class CarlaEnv(gym.Env):
         self.client = carla.Client("localhost", 2000)
         self.client.set_timeout(2.0)
         self.world = self.client.get_world()
+        settings = self.world.get_settings()
+        settings.fixed_delta_seconds = 0.03
+        self.world.apply_settings(settings)
+
 
     def _destroy_actor(self):
         print(len(self.actor_list))
@@ -310,13 +366,13 @@ class CarlaEnv(gym.Env):
                 self._init_position()
                 print("initial_position: ", self.initial_position)
                 self.vehicle = self.world.spawn_actor(bp, self.initial_position)
+                self.actor_list.append(self.vehicle)
                 print("spawning vehicle...")
             except RuntimeError as e:
                 print("runtime error...")
 
                 continue
             self.vehicle.apply_control(self._control)
-            self.actor_list.append(self.vehicle)
             return
         
         
@@ -330,9 +386,17 @@ class CarlaEnv(gym.Env):
         camera_bp.set_attribute('image_size_x', f"{self.im_width}")
         camera_bp.set_attribute('image_size_y', f"{self.im_height}")
         camera_transform = carla.Transform(carla.Location(x=1.8, z=1.0))
-        self.camera_sensor = self.world.spawn_actor(camera_bp, camera_transform, attach_to=self.vehicle)
-        self.camera_sensor.listen(lambda data: self._process_img(data))
-        self.actor_list.append(self.camera_sensor)
+        try:
+            self.camera_sensor = self.world.spawn_actor(camera_bp, camera_transform, attach_to=self.vehicle)
+            self.camera_sensor.listen(lambda data: self._process_img(data))
+            self.actor_list.append(self.camera_sensor)
+    
+        except RuntimeError as e:
+            print("runtime error...")
+            self._destroy_actor()
+            self._spawn_vehicle()
+            self._spawn_camera_sensor()
+            return
     
     def _process_img(self, image):
         # Process camera image to get observation
@@ -354,12 +418,20 @@ class CarlaEnv(gym.Env):
         collision_bp = self.blueprint_library.find('sensor.other.collision')
 
         # Spawn collision sensor
-        self.collision_sensor = self.world.spawn_actor(collision_bp, carla.Transform(), attach_to=self.vehicle)
+        try:
+            self.collision_sensor = self.world.spawn_actor(collision_bp, carla.Transform(), attach_to=self.vehicle)
+            # Register callback for collision events
+            self.collision_sensor.listen(lambda event: self._on_collision(event))
 
-        # Register callback for collision events
-        self.collision_sensor.listen(lambda event: self._on_collision(event))
+            self.actor_list.append(self.collision_sensor)
+        except RuntimeError as e:
+            print("runtime error...")
+            self._destroy_actor()
+            self._spawn_vehicle()
+            self._spawn_camera_sensor()
+            self._spawn_collision_sensor()
+            return
 
-        self.actor_list.append(self.collision_sensor)
 
     def _on_collision(self, event):
         # print("YYYYYYYYYYYYY")
@@ -374,15 +446,33 @@ class CarlaEnv(gym.Env):
         return yaw
 
     def _get_observation(self):
-        image_observation = self.camera_data
+        # image_observation = self.camera_data.reshape((self.camera_channels, self.im_height, self.im_width))
+        frame = self.render(
+            mode='rgb_array', width=self._render_size, height=self._render_size
+        ).transpose(2, 0, 1)
+        # print("frame type", type(frame))
+        self._frames.append(frame)
+        # return torch.from_numpy(np.concatenate(self._frames))
+        # frames = np.concatenate(self._frames)
+        # print("Frame shape: ", frames.shape)
+        # print("Frame type: ", type(frames))
+        image_observation = torch.from_numpy(np.concatenate(self._frames))
+        # print("image_obs type: ", type(image_observation))
+        # print("camera_data shape: ", self.camera_data.shape)
+        print("image_observation shape: ", image_observation.shape)
+
+
+
         velocity_observation = self._get_velocity()
-        yaw_observation = np.array([self._get_yaw()])
-        s, d = 0, 0
+        # yaw_observation = np.array([self._get_yaw()])
+        # s, d, alpha = 0, 0, 0
 
         observation = {
             "image": image_observation,
-            "state": np.array([velocity_observation, s, d])
+            "state": np.array([velocity_observation, self.s, self.d, self.alpha])
         }
+        print("obs_state: ", observation["state"])
+
         return observation
     
     def close(self):

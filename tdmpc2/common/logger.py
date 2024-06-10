@@ -8,6 +8,7 @@ from omegaconf import OmegaConf
 
 from common import TASK_SET
 
+from memory_profiler import profile
 
 CONSOLE_FORMAT = [
 	("iteration", "I", "int"),
@@ -96,6 +97,9 @@ class VideoRecorder:
 
 	def save(self, step, key='videos/eval_video'):
 		if self.enabled and len(self.frames) > 0:
+			# rgb_frames = [frame[..., ::-1] for frame in self.frames]  # BGR to RGB conversion
+			# frames = np.stack(rgb_frames)
+
 			frames = np.stack(self.frames)
 			return self._wandb.log(
 				{key: self._wandb.Video(frames.transpose(0, 3, 1, 2), fps=self.fps, format='mp4')}, step=step
@@ -220,6 +224,7 @@ class Logger:
 			print(colored(f'  {"metaworld":<22}\tR: {metaworld_reward:.01f}', 'yellow', attrs=['bold']))
 			print(colored(f'  {"metaworld":<22}\tS: {metaworld_success:.02f}', 'yellow', attrs=['bold']))
 
+	#@profile
 	def log(self, d, category="train"):
 		assert category in CAT_TO_COLOR.keys(), f"invalid category: {category}"
 		if self._wandb:

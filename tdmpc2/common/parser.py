@@ -39,6 +39,12 @@ def parse_cfg(cfg: OmegaConf) -> OmegaConf:
 	cfg.task_title = cfg.task.replace("-", " ").title()
 	cfg.bin_size = (cfg.vmax - cfg.vmin) / (cfg.num_bins-1) # Bin size for discrete regression
 
+	# # load checkpoint
+	# if cfg.get('checkpoint', None) is not None:
+	# 	cfg.checkpoint = Path(cfg.checkpoint)
+	# 	assert cfg.checkpoint.exists(), f'Checkpoint {cfg.checkpoint} not found! Must be a valid filepath.'
+	cfg.checkpoint = Path(cfg.checkpoint) if cfg.get('checkpoint', None) is not None else None
+	
 	# Model size
 	if cfg.get('model_size', None) is not None:
 		assert cfg.model_size in MODEL_SIZE.keys(), \

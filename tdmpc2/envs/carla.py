@@ -19,14 +19,11 @@ def make_env(cfg):
         raise ValueError("Unknown task:", cfg.task)
     import carla_env
 
-
-    env = gym.make("CarlaEnv-v0", render_mode="human")
+    # env = gym.make("CarlaEnv-v0", render_mode="human")
+    env = gym.make("CarlaEnv-v1", render_mode="human")
     print("env", env)
     env.max_episode_steps = 1000
     env = TimeLimit(env, max_episode_steps=1000)
     print("env", env)
-    env = PixelWrapper(cfg, env, num_frames=3, render_size=64)
-    print("env", env)
-    # env.max_episode_steps = env.get_wrapper_attr("_max_episode_steps")
     print("Returning Carla environment.")
     return env

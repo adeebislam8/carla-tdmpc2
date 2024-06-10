@@ -19,7 +19,9 @@ from common.logger import Logger
 
 torch.backends.cudnn.benchmark = True
 
+from memory_profiler import profile
 
+#@profile
 @hydra.main(config_name='config', config_path='.')
 def train(cfg: dict):
 	"""
@@ -46,11 +48,17 @@ def train(cfg: dict):
 	set_seed(cfg.seed)
 	print(colored('Work dir:', 'yellow', attrs=['bold']), cfg.work_dir)
 	print(colored('Config:', 'yellow', attrs=['bold']), cfg)
+
+	# agent = TDMPC2(cfg)			## ADB: ARE ALL AGENTS THE SAME???
+	# assert os.path.exists(cfg.checkpoint), f'Checkpoint {cfg.checkpoint} not found! Must be a valid filepath.'
+	# agent.load(cfg.checkpoint)
+
 	trainer_cls = OfflineTrainer if cfg.multitask else OnlineTrainer
 	trainer = trainer_cls(
 		cfg=cfg,
 		env=make_env(cfg),
 		agent=TDMPC2(cfg),
+		# agent=agent,
 		buffer=Buffer(cfg),
 		logger=Logger(cfg),
 	)

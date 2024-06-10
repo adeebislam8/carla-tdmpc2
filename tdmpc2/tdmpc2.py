@@ -6,6 +6,7 @@ from common import math
 from common.scale import RunningScale
 from common.world_model import WorldModel
 
+from memory_profiler import profile
 
 class TDMPC2:
 	"""
@@ -67,6 +68,7 @@ class TDMPC2:
 		state_dict = fp if isinstance(fp, dict) else torch.load(fp)
 		self.model.load_state_dict(state_dict["model"])
 
+	#@profile
 	@torch.no_grad()
 	def act(self, obs, t0=False, eval_mode=False, task=None):
 		"""
@@ -81,16 +83,29 @@ class TDMPC2:
 		Returns:
 			torch.Tensor: Action to take in the environment.
 		"""
-		obs = obs.to(self.device, non_blocking=True).unsqueeze(0)
+		# print("tdmpc obs['image']: ", obs['image'].shape)
+		# print("tdmpc obs['state']: ", obs['state'].shape)
+
+		if isinstance(obs, dict):
+			# print("tdmpc2.py obs is dict")
+			obs = {k: v.to(self.device, non_blocking=True) for k, v in obs.items()}
+			# print("tdmpc2.py isinstance obs['image']: ", obs['image'].shape)
+			# print("tdmpc2.py isinstance obs['state']: ", obs['state'].shape)
+		else:
+			# print("tdmpc2.py obs is not dict")
+			obs = obs.to(self.device, non_blocking=True).unsqueeze(0)
+			# print("tdmpc2.py not isinstance obs: ", obs.shape)
 		if task is not None:
 			task = torch.tensor([task], device=self.device)
 		z = self.model.encode(obs, task)
+		# print("tdmpc2.py encoded z: ", z.shape)
 		if self.cfg.mpc:
 			a = self.plan(z, t0=t0, eval_mode=eval_mode, task=task)
 		else:
 			a = self.model.pi(z, task)[int(not eval_mode)][0]
 		return a.cpu()
 
+	#@profile
 	@torch.no_grad()
 	def _estimate_value(self, z, actions, task):
 		"""Estimate value of a trajectory starting at latent state z and executing given actions."""
@@ -102,6 +117,7 @@ class TDMPC2:
 			discount *= self.discount[torch.tensor(task)] if self.cfg.multitask else self.discount
 		return G + discount * self.model.Q(z, self.model.pi(z, task)[1], task, return_type='avg')
 
+	#@profile
 	@torch.no_grad()
 	def plan(self, z, t0=False, eval_mode=False, task=None):
 		"""
@@ -116,6 +132,8 @@ class TDMPC2:
 		Returns:
 			torch.Tensor: Action to take in the environment.
 		"""		
+		# print("tdmpc2.py plan z shape: ", z.shape)
+		# print("tdmpc2.py plan z: ", z)
 		# Sample policy trajectories
 		if self.cfg.num_pi_trajs > 0:
 			pi_actions = torch.empty(self.cfg.horizon, self.cfg.num_pi_trajs, self.cfg.action_dim, device=self.device)
@@ -169,7 +187,8 @@ class TDMPC2:
 		if not eval_mode:
 			a += std * torch.randn(self.cfg.action_dim, device=std.device)
 		return a.clamp_(-1, 1)
-		
+	
+	#@profile
 	def update_pi(self, zs, task):
 		"""
 		Update policy using a sequence of latent states.
@@ -198,6 +217,7 @@ class TDMPC2:
 
 		return pi_loss.item()
 
+	#@profile
 	@torch.no_grad()
 	def _td_target(self, next_z, reward, task):
 		"""
@@ -215,6 +235,7 @@ class TDMPC2:
 		discount = self.discount[task].unsqueeze(-1) if self.cfg.multitask else self.discount
 		return reward + discount * self.model.Q(next_z, pi, task, return_type='min', target=True)
 
+	#@profile
 	def update(self, buffer):
 		"""
 		Main update function. Corresponds to one iteration of model learning.
@@ -226,11 +247,13 @@ class TDMPC2:
 			dict: Dictionary of training statistics.
 		"""
 		obs, action, reward, task = buffer.sample()
-	
+		# print("tdmpc2 obs from buffer: ", obs)
 		# Compute targets
 		with torch.no_grad():
 			next_z = self.model.encode(obs[1:], task)
+			# print("tdmpc.py torch.no_grad next_z shape: ", next_z.shape)
 			td_targets = self._td_target(next_z, reward, task)
+			# print("tdmpc.py td_targets shape: ", td_targets.shape)
 
 		# Prepare for update
 		self.optim.zero_grad(set_to_none=True)
@@ -238,11 +261,14 @@ class TDMPC2:
 
 		# Latent rollout
 		zs = torch.empty(self.cfg.horizon+1, self.cfg.batch_size, self.cfg.latent_dim, device=self.device)
+		# print("tdmpc.py zs shape: ", zs.shape)
 		z = self.model.encode(obs[0], task)
+		# print("tdmpc.py z shape: ", z.shape)
 		zs[0] = z
 		consistency_loss = 0
 		for t in range(self.cfg.horizon):
 			z = self.model.next(z, action[t], task)
+			# print("tdmpc.py z_next shape: ", z.shape)
 			consistency_loss += F.mse_loss(z, next_z[t]) * self.cfg.rho**t
 			zs[t+1] = z
 

@@ -73,11 +73,14 @@ def evaluate(cfg: dict):
 			task_idx = None
 		ep_rewards, ep_successes = [], []
 		for i in range(cfg.eval_episodes):
-			obs, done, ep_reward, t = env.reset(task_idx=task_idx), False, 0, 0		## ADB: env.reset() just outputs the observation
+			# obs, done, ep_reward, t = env.reset(task_idx=task_idx), False, 0, 0		## ADB: env.reset() just outputs the observation
+			obs, done, ep_reward, t = env.reset(), False, 0, 0		## ADB: env.reset() just outputs the observation
+
 			if cfg.save_video:
 				frames = [env.render()]
 			while not done:
-				action = agent.act(obs, t0=t==0, task=task_idx)
+				# action = agent.act(obs, t0=t==0, task=task_idx)
+				action = agent.act(obs, t0=t==0)
 				obs, reward, done, info = env.step(action)		## ADB: env.step() doesnt output terminate
 				ep_reward += reward
 				t += 1											## ADB: WHAT IS t??
