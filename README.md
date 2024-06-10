@@ -1,6 +1,6 @@
 <h1>TD-MPC2</span></h1>
-
-Official implementation of
+This repo implements the original td-mpc2 algorithm in Carla. The carla env is a frankenstein of MACAD-GYM and the env from Iso-Dream
+Official implementation:
 
 [TD-MPC2: Scalable, Robust World Models for Continuous Control](https://www.tdmpc2.com) by
 
